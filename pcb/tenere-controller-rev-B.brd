@@ -184,19 +184,19 @@
 <wire x1="12.7" y1="97.042640625" x2="12.7" y2="100.8" width="0.1" layer="20"/>
 <text x="22.0572" y="37.8662" size="1.778" layer="21" ratio="10" rot="R90">Tree Of Tenere</text>
 <text x="21.9048" y="70.8354" size="2.032" layer="21" ratio="18" rot="R90">Rev B</text>
-<text x="55.7478" y="18.024" size="1" layer="21" ratio="10" rot="R90">5V DT CK  G</text>
+<text x="55.7478" y="18.024" size="1" layer="21" ratio="10" rot="R90">5V CK DT  G</text>
 <text x="43.4494" y="55.8852" size="1.778" layer="21" ratio="10" rot="R270">Designed by</text>
 <text x="45.2982" y="58.5164" size="2.032" layer="21" ratio="18" rot="R90">Shlomo Zippel</text>
 <text x="50.8762" y="29.6164" size="1.778" layer="21" rot="R90">5V</text>
 <text x="50.7746" y="20.5486" size="1.778" layer="21" rot="R90">GND</text>
 <text x="46.355" y="96.4946" size="1.27" layer="21" rot="R180">SW1</text>
-<text x="55.951" y="37.963" size="1" layer="21" ratio="10" rot="R90">5V DT CK  G</text>
-<text x="55.7986" y="57.9528" size="1" layer="21" ratio="10" rot="R90">5V DT CK  G</text>
-<text x="55.9002" y="77.9934" size="1" layer="21" ratio="10" rot="R90">5V DT CK  G</text>
-<text x="10.0636" y="87.894" size="1" layer="21" ratio="10" rot="SR270">5V DT CK  G</text>
-<text x="10.1144" y="67.8534" size="1" layer="21" ratio="10" rot="SR270">5V DT CK  G</text>
-<text x="10.1652" y="47.9144" size="1" layer="21" ratio="10" rot="SR270">5V DT CK  G</text>
-<text x="10.1144" y="26.807" size="1" layer="21" ratio="10" rot="SR270">5V DT CK  G</text>
+<text x="55.951" y="37.963" size="1" layer="21" ratio="10" rot="R90">5V CK DT  G</text>
+<text x="55.7986" y="57.9528" size="1" layer="21" ratio="10" rot="R90">5V CK DT  G</text>
+<text x="55.9002" y="77.9934" size="1" layer="21" ratio="10" rot="R90">5V CK DT  G</text>
+<text x="10.0636" y="87.894" size="1" layer="21" ratio="10" rot="SR270">5V CK DT  G</text>
+<text x="10.1144" y="67.8534" size="1" layer="21" ratio="10" rot="SR270">5V CK DT  G</text>
+<text x="10.1652" y="47.9144" size="1" layer="21" ratio="10" rot="SR270">5V CK DT  G</text>
+<text x="10.1144" y="26.807" size="1" layer="21" ratio="10" rot="SR270">5V CK DT  G</text>
 <text x="30.3784" y="36.957" size="1.778" layer="21">USB</text>
 <rectangle x1="61.275" y1="11.925" x2="61.425" y2="12.075" layer="200"/>
 <rectangle x1="60.975" y1="12.075" x2="61.125" y2="12.225" layer="200"/>
@@ -4187,28 +4187,28 @@ design rules under a new name.</description>
 <attribute name="NAME" x="25.7528" y="91.5312" size="1.27" layer="25" rot="SR0"/>
 </element>
 <element name="J1" library="Custom" package="43650-0400" value="" x="58" y="23" smashed="yes" rot="R270">
-<attribute name="NAME" x="52.2596" y="24.27" size="1.27" layer="25" rot="R270"/>
+<attribute name="NAME" x="52.158" y="23.9398" size="1.27" layer="25" rot="R270"/>
 </element>
 <element name="J2" library="Custom" package="43650-0400" value="" x="58" y="43" smashed="yes" rot="R270">
-<attribute name="NAME" x="52.5898" y="44.3462" size="1.27" layer="25" rot="R270"/>
+<attribute name="NAME" x="52.3358" y="44.3462" size="1.27" layer="25" rot="R270"/>
 </element>
 <element name="J3" library="Custom" package="43650-0400" value="" x="58" y="63" smashed="yes" rot="R270">
-<attribute name="NAME" x="52.031" y="63.0508" size="1.27" layer="25" rot="R270"/>
+<attribute name="NAME" x="52.031" y="63.9906" size="1.27" layer="25" rot="R270"/>
 </element>
 <element name="J4" library="Custom" package="43650-0400" value="" x="58" y="83" smashed="yes" rot="R270">
-<attribute name="NAME" x="52.0056" y="83.7366" size="1.27" layer="25" rot="R270"/>
+<attribute name="NAME" x="52.3612" y="84.1684" size="1.27" layer="25" rot="R270"/>
 </element>
 <element name="J5" library="Custom" package="43650-0400" value="" x="8" y="83" smashed="yes" rot="R90">
-<attribute name="NAME" x="14.3246" y="82.3396" size="1.27" layer="25" rot="R90"/>
+<attribute name="NAME" x="12.4216" y="84.2336" size="1.27" layer="25" rot="SR270"/>
 </element>
 <element name="J6" library="Custom" package="43650-0400" value="" x="8" y="63" smashed="yes" rot="R90">
-<attribute name="NAME" x="15.0104" y="60.8156" size="1.27" layer="25" rot="R90"/>
+<attribute name="NAME" x="12.7264" y="63.5682" size="1.27" layer="25" rot="SR270"/>
 </element>
 <element name="J7" library="Custom" package="43650-0400" value="" x="8" y="43" smashed="yes" rot="R90">
-<attribute name="NAME" x="15.0612" y="44.6002" size="1.27" layer="25" rot="R90"/>
+<attribute name="NAME" x="12.574" y="44.0966" size="1.27" layer="25" rot="SR270"/>
 </element>
 <element name="J8" library="Custom" package="43650-0400" value="" x="8" y="23" smashed="yes" rot="R90">
-<attribute name="NAME" x="14.3246" y="23.2032" size="1.27" layer="25" rot="R90"/>
+<attribute name="NAME" x="12.4978" y="23.6598" size="1.27" layer="25" rot="SR270"/>
 </element>
 <element name="SW1" library="Custom" package="1825027" value="" x="44.3412" y="98.5866" rot="R180"/>
 </elements>
