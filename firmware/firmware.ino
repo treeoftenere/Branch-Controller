@@ -14,8 +14,8 @@
 #define UDP_RX_BUFFER_SIZE  4096
 #define UDP_PORT_NUMBER 1337
 
-#define REVB
-//#define REVC
+//#define REVB
+#define REVC
 
 #ifdef REVB
 uint8_t dip_switch_pins[] = {PA0, PA1, PA2, PA3, PB0};
@@ -41,17 +41,16 @@ typedef struct _opc_header_t {
   uint8_t data[];
 } opc_header_t;
 
-//IPAddress ip(192, 168, 1, 80);
-//byte mac[] = {
-//  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-//};
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+};
 
 EthernetUDP Udp;
 char packet_buffer[UDP_RX_BUFFER_SIZE]; 
 
 FastPin<PA0> fps;
-Button sw(SWITCH_PIN);
 
+Button sw(SWITCH_PIN);
 
 uint8_t get_address() {
     uint8_t result = 0;
@@ -59,18 +58,6 @@ uint8_t get_address() {
         result = result | !digitalRead(dip_switch_pins[i]) << i;
     }
     return result;
-}
-
-IPAddress get_ip_address() {
-   uint8_t addr = get_address();
-   IPAddress ret(192, 168, 1, addr);
-   return ret;
-}
-
-#define STM32_UUID ((uint32_t *)0x1FFFF7E8)
-
-byte * get_mac() {
-   return (byte *)STM32_UUID;
 }
 
 void setup() {
@@ -151,9 +138,12 @@ bool network_connected = false;
 void network_connect() {
   Ethernet.init(PA4);
   Ethernet.softReset();
-  Ethernet.begin(get_mac(), get_ip_address());
+
+  uint8_t addr = get_address();
+  mac[2] = addr;
+  IPAddress ip_addr(192, 168, 1, addr);
+  Ethernet.begin(mac, ip_addr);
   Udp.begin(UDP_PORT_NUMBER);
-  fill_solid((CRGB*)leds, NUM_LEDS, CRGB::Green);
   network_connected = true;
 }
 
@@ -180,7 +170,7 @@ void button_press() {
 void loop() {
   
   sw.poll(button_press);
-  
+
   if (!network_connected) {
     network_connect();
     digitalWrite(PC13, HIGH);
@@ -189,7 +179,7 @@ void loop() {
     digitalWrite(PC13, LOW);
   }
 
-  render();
+  //render();
   
   //Test the button
   //digitalWrite(PC13, digitalRead(SWITCH_PIN));
