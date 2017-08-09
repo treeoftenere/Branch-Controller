@@ -74,7 +74,7 @@ void setup() {
   #endif
 
   #ifdef REVC
-  FastLED.addLeds<TENERE_REVC, CLOCK_PIN, COLOR_ORDER, SPI_RATE>((CRGB *)leds, LEDS_PER_CHANNEL);
+    FastLED.addLeds<TENERE_REVC, CLOCK_PIN, COLOR_ORDER, SPI_RATE>((CRGB *)leds, LEDS_PER_CHANNEL);
 //  FastLED.addLeds<APA102, PB7, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[0],LEDS_PER_CHANNEL);
 //  FastLED.addLeds<APA102, PB6, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[1],LEDS_PER_CHANNEL);
 //  FastLED.addLeds<APA102, PB5, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[2],LEDS_PER_CHANNEL);
@@ -115,15 +115,18 @@ typedef void (*SimplePatternList[])();
 uint8_t g_current_pattern = 0;
 
 SimplePatternList patterns = {
+  network,
   rainbow,
   fullwhite,
-  network,
 };
 
 void next_pattern()
 {
     g_current_pattern = (g_current_pattern + 1) % ARRAY_SIZE( patterns);
-    FastLED.clear();
+
+    // fill the LED array with red - it will get overwritten by actual patterns and 
+    // will remain red in network mode until we receive packets
+    fill_solid((CRGB*)leds, NUM_LEDS, CRGB::Red);
 }
 
 void render() {
@@ -153,7 +156,7 @@ void network_poll() {
     opc_header_t * header = (opc_header_t *)packet_buffer;
     while (remaining > 4) {
       uint16_t data_size = header->datalen_h << 8 | header->datalen_l;
-      uint16_t offset = (int)header->channel * 105 * 3;
+      uint16_t offset = (int)header->channel * LEDS_PER_CHANNEL * 3;
       memcpy8((uint8_t *) leds + offset, header->data, min(data_size, remaining-4));
       remaining -= (data_size + 4);
       header = (opc_header_t *) (packet_buffer+data_size+4);
