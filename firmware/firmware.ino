@@ -13,7 +13,7 @@
 #define UDP_PORT_NUMBER     1337
 
 #define PARALLEL_OUTPUT
-#define TEST_MODE
+#define PLAYA_MODE
 
 //-------------------------------------------------------------------------------------------
 // Pin mappings
@@ -56,6 +56,9 @@ FastPin<FPS_PIN> fps;
 
 Button sw(SWITCH_PIN);
 
+uint32_t last_packet_time = 0;
+uint8_t brightness = 0;
+
 //-------------------------------------------------------------------------------------------
 // IP & Mac address
 //-------------------------------------------------------------------------------------------
@@ -80,7 +83,17 @@ uint8_t get_address() {
 //-------------------------------------------------------------------------------------------
 
 void network() {
+  // clear the buffer if we didn't receive a packet for a while
+  int32_t delta = millis() - last_packet_time - 10000;
+  if (delta > 10000) {
+    brightness = 0;
+  } else if (delta > 0) {
+    brightness = map(delta, 0, 10000, 255, 0);
+  } else {
+    brightness = qadd8(brightness, 5);
+  }
 
+  FastLED.setBrightness(brightness);
 }
 
 void rainbow() {
@@ -98,7 +111,7 @@ uint8_t g_current_pattern = 0;
 SimplePatternList patterns = {
   network,
   rainbow,
-  fullwhite,
+  //fullwhite,
 };
 
 void render() {
@@ -108,17 +121,17 @@ void render() {
 
 void next_pattern()
 {
-  // only allow changin modes when testing. playa should be network only
-  #ifdef TEST_MODE
-    g_current_pattern = (g_current_pattern + 1) % ARRAY_SIZE( patterns);
-    fill_solid((CRGB*)leds, NUM_LEDS, CRGB::Black);
-  #endif
+  g_current_pattern = (g_current_pattern + 1) % ARRAY_SIZE( patterns);
+  fill_solid((CRGB*)leds, NUM_LEDS, CRGB::Black);
+  FastLED.setBrightness(255);
 }
 
 
 //-------------------------------------------------------------------------------------------
 // Network code
 //-------------------------------------------------------------------------------------------
+
+bool got_a_packet = false;
 
 void network_connect() {
   Ethernet.init(ETHERNET_CS_PIN);
@@ -141,6 +154,14 @@ void network_poll() {
   int packet_size = Udp.parsePacket();
   static int remaining = 0;
   if (packet_size > 0) {
+    got_a_packet = true;
+    last_packet_time = millis();
+    FastLED.setBrightness(255);
+
+    // force us into network mode if we receive a packet
+    g_current_pattern = 0;
+    
+    
     remaining += Udp.read(packet_buffer+remaining,UDP_RX_BUFFER_SIZE);
     opc_header_t * header = (opc_header_t *)packet_buffer;
     while (remaining > 4) {
@@ -150,6 +171,8 @@ void network_poll() {
       memcpy8((uint8_t *) leds + offset, header->data, min(data_size, remaining-4));
       remaining -= (data_size + 4);
       header = (opc_header_t *) (packet_buffer+data_size+4);
+
+      // intermediate render if we have multiple frames in this packet
       if (remaining > 4) {
         render();
       }
@@ -162,7 +185,11 @@ void network_poll() {
 //-------------------------------------------------------------------------------------------
 
 void button_press() {
-  next_pattern();
+  // Only switch modes on playa if we don't have network activity
+  #ifdef PLAYA_MODE
+  if (!got_a_packet)
+  #endif
+    next_pattern();
 }
 
 void button_hold() {
@@ -222,15 +249,16 @@ void setup() {
 
    // indicator LED
    pinMode(INDICATOR_PIN, OUTPUT);
+   digitalWrite(INDICATOR_PIN, HIGH);
 
+   // wait a bit before connecting to ensure the switches are powered on
+   delay(3000);
    network_connect();
 }
 
 
 void loop() {
   sw.poll(button_press, button_hold);
-
-  memset((CRGB*)leds, 0, NUM_LEDS);
 
   network_poll();
   
