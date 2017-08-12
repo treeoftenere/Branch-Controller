@@ -1,18 +1,23 @@
-//#define WIZ550io_WITH_MACADDRESS
 #include <SPI.h>
 #include <Ethernet.h>
-//#include <EthernetUdp3.h>
 #include <FastLED.h>
+#include <EEPROM.h>
 #include "button.h"
 
-#define LEDS_PER_CHANNEL  105
-#define NUM_CHANNELS 8
-#define NUM_LEDS    (NUM_CHANNELS * LEDS_PER_CHANNEL)
-#define COLOR_ORDER BGR
-#define SPI_RATE    DATA_RATE_MHZ(4)
+#define LEDS_PER_CHANNEL    105
+#define NUM_CHANNELS        8
+#define NUM_LEDS            (NUM_CHANNELS * LEDS_PER_CHANNEL)
+#define COLOR_ORDER         BGR
+#define SPI_RATE            DATA_RATE_MHZ(4)
+#define UDP_RX_BUFFER_SIZE  8192
+#define UDP_PORT_NUMBER     1337
 
-#define UDP_RX_BUFFER_SIZE  4096
-#define UDP_PORT_NUMBER 1337
+#define PARALLEL_OUTPUT
+#define TEST_MODE
+
+//-------------------------------------------------------------------------------------------
+// Pin mappings
+//-------------------------------------------------------------------------------------------
 
 //#define REVB
 #define REVC
@@ -20,14 +25,17 @@
 #ifdef REVB
 uint8_t dip_switch_pins[] = {PA0, PA1, PA2, PA3, PB0};
 #define SWITCH_PIN  PB1
-#define CLOCK_PIN   PB12
 #endif 
 
 #ifdef REVC
 uint8_t dip_switch_pins[] = {PB9, PB8, PA1, PA0, PA2, PA3, PB0, PB1};
 #define SWITCH_PIN  PA15
-#define CLOCK_PIN   PB12
 #endif
+
+#define FPS_PIN         PA0
+#define CLOCK_PIN       PB12
+#define ETHERNET_CS_PIN PA4
+#define INDICATOR_PIN   PC13
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
@@ -41,16 +49,22 @@ typedef struct _opc_header_t {
   uint8_t data[];
 } opc_header_t;
 
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-
 EthernetUDP Udp;
 char packet_buffer[UDP_RX_BUFFER_SIZE]; 
 
-FastPin<PA0> fps;
+FastPin<FPS_PIN> fps;
 
 Button sw(SWITCH_PIN);
+
+//-------------------------------------------------------------------------------------------
+// IP & Mac address
+//-------------------------------------------------------------------------------------------
+
+// this default mac seems to work well as a template, lets just replace a single
+// byte based on controller address
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+};
 
 uint8_t get_address() {
     uint8_t result = 0;
@@ -60,42 +74,13 @@ uint8_t get_address() {
     return result;
 }
 
-void setup() {
-  #ifdef REVB
-  FastLED.addLeds<TENERE_REVB, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds, LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB13, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[0],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB14, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[1],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB15, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[2],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB5, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[3],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB6, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[4],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB7, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[5],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB8, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[6],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB9, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[7],LEDS_PER_CHANNEL);
-  #endif
 
-  #ifdef REVC
-    FastLED.addLeds<TENERE_REVC, CLOCK_PIN, COLOR_ORDER, SPI_RATE>((CRGB *)leds, LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB7, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[0],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB6, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[1],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB5, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[2],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB4, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[3],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB3, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[4],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB15, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[5],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB14, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[6],LEDS_PER_CHANNEL);
-//  FastLED.addLeds<APA102, PB13, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[7],LEDS_PER_CHANNEL);
-  #endif
-  
-  FastLED.setBrightness(255);
-  SPI.begin();
+//-------------------------------------------------------------------------------------------
+// Test patterns
+//-------------------------------------------------------------------------------------------
 
-  fps.setOutput();
+void network() {
 
-  // address dip switch
-   for (int i = 0; i < ARRAY_SIZE(dip_switch_pins); i++) {
-       pinMode(dip_switch_pins[i], INPUT_PULLUP);
-   }
-  
-   pinMode(PC13, OUTPUT);
 }
 
 void rainbow() {
@@ -107,10 +92,6 @@ void fullwhite() {
     fill_solid((CRGB*)leds, NUM_LEDS, CRGB::White);  
 }
 
-void network() {
-  
-}
-
 typedef void (*SimplePatternList[])();
 uint8_t g_current_pattern = 0;
 
@@ -120,32 +101,40 @@ SimplePatternList patterns = {
   fullwhite,
 };
 
-void next_pattern()
-{
-    g_current_pattern = (g_current_pattern + 1) % ARRAY_SIZE( patterns);
-
-    // fill the LED array with red - it will get overwritten by actual patterns and 
-    // will remain red in network mode until we receive packets
-    fill_solid((CRGB*)leds, NUM_LEDS, CRGB::Red);
-}
-
 void render() {
   (patterns)[g_current_pattern]();
   FastLED.delay(1000/120);
 }
 
-bool network_connected = false;
+void next_pattern()
+{
+  // only allow changin modes when testing. playa should be network only
+  #ifdef TEST_MODE
+    g_current_pattern = (g_current_pattern + 1) % ARRAY_SIZE( patterns);
+    fill_solid((CRGB*)leds, NUM_LEDS, CRGB::Black);
+  #endif
+}
+
+
+//-------------------------------------------------------------------------------------------
+// Network code
+//-------------------------------------------------------------------------------------------
 
 void network_connect() {
-  Ethernet.init(PA4);
+  Ethernet.init(ETHERNET_CS_PIN);
   Ethernet.softReset();
 
-  uint8_t addr = get_address();
+  // attempt to read stored address first
+  uint8_t addr;
+  addr = EEPROM.read(0);
+  if (255 == addr) {
+      addr = get_address();
+  }
+  
   mac[2] = addr;
   IPAddress ip_addr(192, 168, 1, addr);
   Ethernet.begin(mac, ip_addr);
   Udp.begin(UDP_PORT_NUMBER);
-  network_connected = true;
 }
 
 void network_poll() {
@@ -155,34 +144,95 @@ void network_poll() {
     remaining += Udp.read(packet_buffer+remaining,UDP_RX_BUFFER_SIZE);
     opc_header_t * header = (opc_header_t *)packet_buffer;
     while (remaining > 4) {
+      fps.toggle();
       uint16_t data_size = header->datalen_h << 8 | header->datalen_l;
       uint16_t offset = (int)header->channel * LEDS_PER_CHANNEL * 3;
       memcpy8((uint8_t *) leds + offset, header->data, min(data_size, remaining-4));
       remaining -= (data_size + 4);
       header = (opc_header_t *) (packet_buffer+data_size+4);
+      if (remaining > 4) {
+        render();
+      }
     }
   }
 }
+
+//-------------------------------------------------------------------------------------------
+// Button handlers
+//-------------------------------------------------------------------------------------------
 
 void button_press() {
   next_pattern();
 }
 
+void button_hold() {
+  EEPROM.write(0, get_address());  
+  network_connect();
+
+  digitalWrite(INDICATOR_PIN, LOW);
+  delay(250);
+  digitalWrite(INDICATOR_PIN, HIGH);
+  delay(250);
+  digitalWrite(INDICATOR_PIN, LOW);
+  delay(250);
+  digitalWrite(INDICATOR_PIN, HIGH);
+}
+
+void setup() {
+  #ifdef REVB
+    #ifdef PARALLEL_OUTPUT
+      FastLED.addLeds<TENERE_REVB, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds, LEDS_PER_CHANNEL);
+    #else
+      FastLED.addLeds<APA102, PB13, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[0],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB14, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[1],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB15, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[2],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB5, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[3],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB6, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[4],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB7, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[5],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB8, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[6],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB9, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[7],LEDS_PER_CHANNEL);
+    #endif
+  #endif
+
+  #ifdef REVC
+    #ifdef PARALLEL_OUTPUT
+      FastLED.addLeds<TENERE_REVC, CLOCK_PIN, COLOR_ORDER, SPI_RATE>((CRGB *)leds, LEDS_PER_CHANNEL);
+    #else
+      FastLED.addLeds<APA102, PB7, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[0],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB6, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[1],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB5, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[2],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB4, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[3],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB3, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[4],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB15, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[5],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB14, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[6],LEDS_PER_CHANNEL);
+      FastLED.addLeds<APA102, PB13, CLOCK_PIN, COLOR_ORDER, SPI_RATE>(leds[7],LEDS_PER_CHANNEL);
+    #endif
+  #endif
+  
+  FastLED.setBrightness(255);
+  SPI.begin();
+
+  // debug pin
+  fps.setOutput();
+
+  // ip address dip switch
+   for (int i = 0; i < ARRAY_SIZE(dip_switch_pins); i++) {
+       pinMode(dip_switch_pins[i], INPUT_PULLUP);
+   }
+
+   // indicator LED
+   pinMode(INDICATOR_PIN, OUTPUT);
+
+   network_connect();
+}
+
+
 void loop() {
-  
-  sw.poll(button_press);
+  sw.poll(button_press, button_hold);
 
-  if (!network_connected) {
-    network_connect();
-    digitalWrite(PC13, HIGH);
-  } else {
-    network_poll();
-    digitalWrite(PC13, LOW);
-  }
+  memset((CRGB*)leds, 0, NUM_LEDS);
 
-  render();
+  network_poll();
   
-  //Test the button
-  //digitalWrite(PC13, digitalRead(SWITCH_PIN));
-  fps.toggle();
+  render();  
 }
