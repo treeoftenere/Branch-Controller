@@ -11,6 +11,8 @@
 
 import java.net.*;
 import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
 
 public class OPC implements Runnable
 {
@@ -21,13 +23,14 @@ public class OPC implements Runnable
   int port;
   InetAddress addr;
 
-  int[] pixelLocations;
+  int numStrips;
+  List<int[]> pixelLocations;
   byte[] packetData;
   byte firmwareConfig;
   String colorCorrection;
   boolean enableShowLocations;
 
-  OPC(PApplet parent, String host, int port)
+  OPC(PApplet parent, String host, int port, int numStrips)
   {
     this.host = host;
     this.port = port;
@@ -37,6 +40,17 @@ public class OPC implements Runnable
     } catch(Exception e) {
     }
     
+    this.numStrips = numStrips;
+    this.pixelLocations = new ArrayList<int[]>(numStrips);
+    for (int s=0; s<numStrips; s++) {
+      this.pixelLocations.add(s, new int[0]);
+    }
+    
+    // tenere controller uses an ethernet controller with a fixed MTU and simply
+    // drops IP fragments. We will try and get as many strips as we can into
+    // each UDP packet
+    packetData = new byte[1472];
+    
     thread = new Thread(this);
     thread.start();
     this.enableShowLocations = true;
@@ -44,28 +58,26 @@ public class OPC implements Runnable
   }
 
   // Set the location of a single LED
-  void led(int index, int x, int y)  
+  void led(int strip, int index, int x, int y)  
   {
     // For convenience, automatically grow the pixelLocations array. We do want this to be an array,
     // instead of a HashMap, to keep draw() as fast as it can be.
-    if (pixelLocations == null) {
-      pixelLocations = new int[index + 1];
-    } else if (index >= pixelLocations.length) {
-      pixelLocations = Arrays.copyOf(pixelLocations, index + 1);
+    if (index >= pixelLocations.get(strip).length) {
+      pixelLocations.set(strip, Arrays.copyOf(pixelLocations.get(strip), index + 1));
     }
 
-    pixelLocations[index] = x + width * y;
+    pixelLocations.get(strip)[index] = x + width * y;
   }
   
   // Set the location of several LEDs arranged in a strip.
   // Angle is in radians, measured clockwise from +X.
   // (x,y) is the center of the strip.
-  void ledStrip(int index, int count, float x, float y, float spacing, float angle, boolean reversed)
-  {
+  void ledStrip(int strip, int index, int count, float x, float y, float spacing, float angle, boolean reversed)
+  {      
     float s = sin(angle);
     float c = cos(angle);
     for (int i = 0; i < count; i++) {
-      led(reversed ? (index + count - 1 - i) : (index + i),
+      led(strip, reversed ? (index + count - 1 - i) : (index + i),
         (int)(x + (i - (count-1)/2.0) * spacing * c + 0.5),
         (int)(y + (i - (count-1)/2.0) * spacing * s + 0.5));
     }
@@ -74,38 +86,13 @@ public class OPC implements Runnable
   // Set the locations of a ring of LEDs. The center of the ring is at (x, y),
   // with "radius" pixels between the center and each LED. The first LED is at
   // the indicated angle, in radians, measured clockwise from +X.
-  void ledRing(int index, int count, float x, float y, float radius, float angle)
+  void ledRing(int strip, int index, int count, float x, float y, float radius, float angle)
   {
     for (int i = 0; i < count; i++) {
       float a = angle + i * 2 * PI / count;
-      led(index + i, (int)(x - radius * cos(a) + 0.5),
+      led(strip, index + i, (int)(x - radius * cos(a) + 0.5),
         (int)(y - radius * sin(a) + 0.5));
     }
-  }
-
-  // Set the location of several LEDs arranged in a grid. The first strip is
-  // at 'angle', measured in radians clockwise from +X.
-  // (x,y) is the center of the grid.
-  void ledGrid(int index, int stripLength, int numStrips, float x, float y,
-               float ledSpacing, float stripSpacing, float angle, boolean zigzag,
-               boolean flip)
-  {
-    float s = sin(angle + HALF_PI);
-    float c = cos(angle + HALF_PI);
-    for (int i = 0; i < numStrips; i++) {
-      ledStrip(index + stripLength * i, stripLength,
-        x + (i - (numStrips-1)/2.0) * stripSpacing * c,
-        y + (i - (numStrips-1)/2.0) * stripSpacing * s, ledSpacing,
-        angle, zigzag && ((i % 2) == 1) != flip);
-    }
-  }
-
-  // Set the location of 64 LEDs arranged in a uniform 8x8 grid.
-  // (x,y) is the center of the grid.
-  void ledGrid8x8(int index, float x, float y, float spacing, float angle, boolean zigzag,
-                  boolean flip)
-  {
-    ledGrid(index, 8, 8, x, y, spacing, spacing, angle, zigzag, flip);
   }
 
   // Should the pixel sampling locations be visible? This helps with debugging.
@@ -125,95 +112,62 @@ public class OPC implements Runnable
   // separately.
   void draw()
   {
-    if (pixelLocations == null) {
-      // No pixels defined yet
-      return;
-    }
-
-    int numPixels = pixelLocations.length;
-    int ledAddress = 4;
-
-    setPixelCount(numPixels);
     loadPixels();
+    
+    int currentOffset = 0;
+    
+    for (int s=0; s<this.numStrips; s++) {
+      int numPixels = pixelLocations.get(s).length;
+      int numBytes = numPixels * 3;
 
-    for (int i = 0; i < numPixels; i++) {
-      int pixelLocation = pixelLocations[i];
-      int pixel = pixels[pixelLocation];
+      // skip blank strips
+      if  (numPixels == 0) {
+        continue;
+      }
+      
+      // is this packet full? send it off!
+      if (currentOffset + numBytes + 4 > packetData.length) {
+        writePixels(currentOffset);
+        currentOffset = 0;
+      }
+      
+      // write header for this strip
+      packetData[currentOffset+0] = (byte)s;                 // Channel
+      packetData[currentOffset+1] = (byte)0x00;              // Command (Set pixel colors)
+      packetData[currentOffset+2] = (byte)(numBytes >> 8);   // Length high byte
+      packetData[currentOffset+3] = (byte)(numBytes & 0xFF); // Length low byte
 
-      packetData[ledAddress] = (byte)(pixel >> 16);
-      packetData[ledAddress + 1] = (byte)(pixel >> 8);
-      packetData[ledAddress + 2] = (byte)pixel;
-      ledAddress += 3;
+      currentOffset += 4;
+      int[] thisStrip = pixelLocations.get(s);
+      for (int i = 0; i < numPixels; i++) {
+        int pixelLocation = thisStrip[i];
+        int pixel = pixels[pixelLocation];
 
-      if (enableShowLocations) {
-        pixels[pixelLocation] = 0xFFFFFF ^ pixel;
+        packetData[currentOffset + 0] = (byte)(pixel >> 16);
+        packetData[currentOffset + 1] = (byte)(pixel >> 8);
+        packetData[currentOffset + 2] = (byte)pixel;
+        currentOffset += 3;
       }
     }
-
-    writePixels();
-
+        
+    writePixels(currentOffset);
+        
     if (enableShowLocations) {
       updatePixels();
     }
   }
   
-  // Change the number of pixels in our output packet.
-  // This is normally not needed; the output packet is automatically sized
-  // by draw() and by setPixel().
-  void setPixelCount(int numPixels)
-  {
-    int numBytes = 3 * numPixels;
-    int packetLen = 4 + numBytes;
-    if (packetData == null || packetData.length != packetLen) {
-      // Set up our packet buffer
-      packetData = new byte[packetLen];
-      packetData[0] = (byte)0x00;              // Channel
-      packetData[1] = (byte)0x00;              // Command (Set pixel colors)
-      packetData[2] = (byte)(numBytes >> 8);   // Length high byte
-      packetData[3] = (byte)(numBytes & 0xFF); // Length low byte
-    }
-  }
-  
-  // Directly manipulate a pixel in the output buffer. This isn't needed
-  // for pixels that are mapped to the screen.
-  void setPixel(int number, color c)
-  {
-    int offset = 4 + number * 3;
-    if (packetData == null || packetData.length < offset + 3) {
-      setPixelCount(number + 1);
-    }
-
-    packetData[offset] = (byte) (c >> 16);
-    packetData[offset + 1] = (byte) (c >> 8);
-    packetData[offset + 2] = (byte) c;
-  }
-  
-  // Read a pixel from the output buffer. If the pixel was mapped to the display,
-  // this returns the value we captured on the previous frame.
-  color getPixel(int number)
-  {
-    int offset = 4 + number * 3;
-    if (packetData == null || packetData.length < offset + 3) {
-      return 0;
-    }
-    return (packetData[offset] << 16) | (packetData[offset + 1] << 8) | packetData[offset + 2];
-  }
-
   // Transmit our current buffer of pixel values to the OPC server. This is handled
   // automatically in draw() if any pixels are mapped to the screen, but if you haven't
   // mapped any pixels to the screen you'll want to call this directly.
-  void writePixels()
+  void writePixels(int len)
   {
-    if (packetData == null || packetData.length == 0) {
-      // No pixel buffer
-      return;
-    }
-    if (socket == null) {
+    if (socket == null || len == 0) {
       return;
     }
 
     try {
-      DatagramPacket packet = new DatagramPacket(packetData, packetData.length, this.addr, this.port);
+      DatagramPacket packet = new DatagramPacket(packetData, len, this.addr, this.port);
       socket.send(packet);
     } catch (Exception e) {
       
