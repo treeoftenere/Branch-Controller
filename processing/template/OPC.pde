@@ -147,6 +147,10 @@ public class OPC implements Runnable
         packetData[currentOffset + 1] = (byte)(pixel >> 8);
         packetData[currentOffset + 2] = (byte)pixel;
         currentOffset += 3;
+        
+        if (enableShowLocations) {
+          pixels[pixelLocation] = 0xFFFFFF ^ pixel;
+        }
       }
     }
         
